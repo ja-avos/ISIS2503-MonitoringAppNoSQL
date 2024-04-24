@@ -70,7 +70,7 @@ def verifyMeasurementData(data):
     measurement = Measurement()
     measurement.variable_id = data['variable_id']
     measurement.value = data['value']
-    measurement.datetime = datetime.datetime.now(datetime.UTC)
+    measurement.datetime = datetime.datetime.now()
 
     return measurement
 
@@ -88,9 +88,9 @@ def add_measurement(place_id, data):
     
     place = Place.from_mongo(place)
     measurement_group = next(
-        [measurement for measurement in place.measurements
-                        if measurement.variable_id == new_measurement.variable_id],
-        default=None
+        (measurement for measurement in place.measurements
+                        if measurement["variable_id"] == new_measurement.variable_id),
+        None
     )
 
     result = None
@@ -113,7 +113,7 @@ def add_measurement(place_id, data):
 
     client.close()
 
-    return result
+    return result.modified_count
 
 def verifyAverageData(data):
     if 'variable' not in data:
@@ -139,9 +139,9 @@ def get_average(place_id, data):
     # Calculo de promedio
     average = 0
     measurement_group = next(
-        [measurement for measurement in place.measurements
-                        if measurement['variable_id'] == data['variable']],
-        default=None
+        (measurement for measurement in place.measurements
+                        if measurement['variable_id'] == data['variable']),
+        None
     )
 
     if measurement_group is None or len(measurement_group.get('values', [])) == 0:

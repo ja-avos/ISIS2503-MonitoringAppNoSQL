@@ -32,6 +32,8 @@ def verifyVariableData(data):
     
     variable = Variable()
     variable.name = data['name']
+    variable.min_threshold = data['min_threshold'] if 'min_threshold' in data else None
+    variable.max_threshold = data['max_threshold'] if 'max_threshold' in data else None
 
     return variable
 

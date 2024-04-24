@@ -40,7 +40,7 @@ def verifyWarningData(data):
     
     warning = Warning()
     warning.place_id = data['place']
-    warning.datetime = datetime.datetime.now(datetime.UTC)
+    warning.datetime = datetime.datetime.now()
 
     return warning
 
