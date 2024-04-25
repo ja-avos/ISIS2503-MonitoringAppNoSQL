@@ -4,6 +4,7 @@ class Place():
     id = str()
     name = str()
     measurements = list()
+    critical = bool()
 
     def __str__(self):
         return self.name
@@ -11,9 +12,10 @@ class Place():
     @staticmethod
     def from_mongo(dto):
         place = Place()
-        place.id = str(dto['_id'])
-        place.name = dto['name']
-        place.measurements = dto['measurements']
+        place.id = str(dto.get('_id', ''))
+        place.name = dto.get('name', '')
+        place.measurements = dto.get('measurements', [])
+        place.critical = dto.get('critical', False)
         return place
 
 class Measurement():
@@ -28,9 +30,9 @@ class Measurement():
     @staticmethod
     def from_mongo(dto):
         measurement = Measurement()
-        measurement.id = str(dto['_id'])
-        measurement.variable_id = dto['variable_id']
-        measurement.place_id = dto['place_id']
-        measurement.datetime = dto['datetime']
-        measurement.value = dto['value']
+        measurement.id = str(dto.get('_id', ''))
+        measurement.variable_id = dto.get('variable_id', '')
+        measurement.place_id = dto.get('place_id', '')
+        measurement.datetime = dto.get('datetime', datetime.datetime.now())
+        measurement.value = dto.get('value', 0.0)
         return measurement

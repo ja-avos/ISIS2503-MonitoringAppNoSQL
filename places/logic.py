@@ -7,9 +7,19 @@ import datetime
 def getPlaces():
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
+
+    places = []
+
+    # Critical places
+    places_collection = db['criticalPlaces']
+    places_db = places_collection.find({})
+    places += [ Place.from_mongo(place) for place in places_db ]
+
+    # Normal places
     places_collection = db['places']
-    places_collection = places_collection.find({})
-    places = [ Place.from_mongo(place) for place in places_collection ]
+    places_db = places_collection.find({})
+    places = [ Place.from_mongo(place) for place in places_db ]
+    
     client.close()
 
     return places
@@ -17,8 +27,14 @@ def getPlaces():
 def getPlace(id):
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
-    places_collection = db['places']
+
+    places_collection = db['critialPlaces']
     place = places_collection.find_one({'_id': ObjectId(id)})
+
+    if place is None:
+        places_collection = db['places']
+        place = places_collection.find_one({'_id': ObjectId(id)})
+
     client.close()
 
     if place is None:
@@ -32,6 +48,7 @@ def verifyPlaceData(data):
     
     place = Place()
     place.name = data['name']
+    place.critical = data.get('critical', False)
 
     return place
 
@@ -43,7 +60,7 @@ def createPlace(data):
     # Create place in MongoDB
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
-    places_collection = db['places']
+    places_collection = db['places'] if not place.critical else db['criticalPlaces']
     place.id = places_collection.insert(
         {
             'name': place.name,
@@ -56,8 +73,16 @@ def createPlace(data):
 def deletePlace(id):
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
-    places_collection = db['places']
-    result = places_collection.remove({'_id': ObjectId(id)})
+
+    # Critical places
+    places_collection = db['criticalPlaces']
+    result = places_collection.delete_one({'_id': ObjectId(id)})
+
+    if result.deleted_count == 0:
+        # Normal places
+        places_collection = db['places']
+        result = places_collection.delete_one({'_id': ObjectId(id)})
+
     client.close()
     return result
 
@@ -81,8 +106,16 @@ def add_measurement(place_id, data):
     # Create measurement in MongoDB
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
-    places_collection = db['places']
+
+    # Check first critical places
+    places_collection = db['criticalPlaces']
     place = places_collection.find_one({'_id': ObjectId(place_id)})
+
+    # If not found, check normal places
+    if place is None:
+        places_collection = db['places']
+        place = places_collection.find_one({'_id': ObjectId(place_id)})
+    
     if place is None:
         raise ValueError('Place not found')
     
@@ -98,6 +131,7 @@ def add_measurement(place_id, data):
     if measurement_group is None:
         measurement_group = {
             'variable_id': new_measurement.variable_id,
+            'average': new_measurement.value,
             'values': [new_measurement.__dict__]
         }
         result = places_collection.update_one(
@@ -106,6 +140,12 @@ def add_measurement(place_id, data):
         )
     else:
         measurement_group['values'].append(new_measurement.__dict__)
+
+        # Update average
+        measurement_group['average'] = sum(
+            measure['value'] for measure in measurement_group['values']
+        ) / len(measurement_group['values'])
+
         result = places_collection.update_one(
             {'_id': ObjectId(place_id)},
             {'$set': {'measurements': place.measurements}}
@@ -135,8 +175,10 @@ def get_average(place_id, data):
 
     if variable is None:
         raise ValueError('Variable not found')
+    
+    client.close()
 
-    # Calculo de promedio
+    # Obtener promedio
     average = 0
     measurement_group = next(
         (measurement for measurement in place.measurements
@@ -150,12 +192,19 @@ def get_average(place_id, data):
             'variable': variable['name'],
             'average': None
         }
+    
+    # Si el campo average existe, se retorna directamente
+    if 'average' in measurement_group:
+        return {
+            'place': place.name,
+            'variable': variable['name'],
+            'average': measurement_group['average']
+        }
 
+    # Si no, se calcula el promedio
     for measure in measurement_group['values']:
         average = average + measure["value"]
     average = average / len(measurement_group["values"])
-
-    client.close()
 
     return {
         'place': place.name,
