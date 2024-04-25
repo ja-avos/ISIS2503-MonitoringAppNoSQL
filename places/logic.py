@@ -18,7 +18,7 @@ def getPlaces():
     # Normal places
     places_collection = db['places']
     places_db = places_collection.find({})
-    places = [ Place.from_mongo(place) for place in places_db ]
+    places += [ Place.from_mongo(place) for place in places_db ]
     
     client.close()
 
