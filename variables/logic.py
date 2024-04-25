@@ -8,8 +8,8 @@ def getVariables():
     client = MongoClient(settings.MONGO_CLI)
     db = client.monitoring_db
     variables_collection = db['variables']
-    variables_collection = variables_collection.find({})
-    variables = [ Variable.from_mongo(variable) for variable in variables_collection ]
+    variables_data = variables_collection.find({})
+    variables = [ Variable.from_mongo(variable) for variable in variables_data ]
     client.close()
 
     return variables
